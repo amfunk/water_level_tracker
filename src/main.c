@@ -1,8 +1,13 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
+#include "hardware/adc.h"
+#include "hardware/gpio.h"
+#include "pico/multicore.h"
 
 #define LOWER_THRESHOLD 1
 #define UPPER_THRESHOLD 10000
+
+bool is_filling = false;
 
 void read_water_level ()
 {
@@ -10,14 +15,42 @@ void read_water_level ()
   while (1) {
     data = adc_read();
     if (multicore_fifo_wready()) {
-      printf("Adding data to FIFO\n");
+      printf("Adding data to FIFO: %u\n",data);
       multicore_fifo_push_blocking(data);
     } else {
       printf("FIFO not ready for data...\n");
     }
     // sleep for one minute in betweeen checks
-    sleep_ms(60000);
+
+    if (is_filling) {
+      // Check water level every second until stop filling
+      sleep_ms(1000);
+
+    } else if (!is_filling) {
+      // Not currently filling reservoir
+      sleep_ms(60000);
+    }
   }
+}
+
+void open_valve ()
+{
+  // TODO actually open valve
+  printf("OPENING VALVE\n");
+
+  is_filling = true;
+
+  return;
+}
+
+void close_valve ()
+{
+  // TODO actually close valve
+  printf("CLOSING VALVE\n");
+
+  is_filling = false;
+
+  return;
 }
 
 int main ()
@@ -32,12 +65,15 @@ int main ()
 
   while (1) {
     data = multicore_fifo_pop_blocking();
-    if (data > UPPER_THRESHOLD) {
-      //DO THIS
-    } else if (data < LOWER_THRESHOLD) {
-      //DO THAT
+    printf("Reading data from FIFO: %u\n",data);
+    if (data < LOWER_THRESHOLD) {
+      // If water level is too low, open valve
+      open_valve();
+      
+    } else if (data > UPPER_THRESHOLD) {
+      // Water level has refilled sufficiently
+      close_valve();
     }
-
   }
 
   return 0;
