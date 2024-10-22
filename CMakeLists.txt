@@ -1,12 +1,13 @@
 cmake_minimum_required(VERSION 3.13)
 
+# This MUST happen before include() as of SDK 2.0.0
+set(PICO_BOARD pico)
+
 # initialize the SDK based on PICO_SDK_PATH
 # note: this must happen before project()
 include(pico_sdk_import.cmake)
 
 project(water_level_tracker)
-
-set(PICO_BOARD pico)
 
 # initialize the Raspberry Pi Pico SDK
 pico_sdk_init()
