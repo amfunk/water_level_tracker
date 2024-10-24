@@ -7,6 +7,9 @@
 #define LOWER_THRESHOLD 1
 #define UPPER_THRESHOLD 10000
 
+#define ADC_PIN 26
+#define VALVE_PIN 1
+
 bool is_filling = false;
 
 void read_water_level ()
@@ -20,7 +23,6 @@ void read_water_level ()
     } else {
       printf("FIFO not ready for data...\n");
     }
-    // sleep for one minute in betweeen checks
 
     if (is_filling) {
       // Check water level every second until stop filling
@@ -29,6 +31,7 @@ void read_water_level ()
     } else if (!is_filling) {
       // Not currently filling reservoir
       sleep_ms(60000);
+      // sleep for one minute in betweeen checks
     }
   }
 }
@@ -37,6 +40,8 @@ void open_valve ()
 {
   // TODO actually open valve
   printf("OPENING VALVE\n");
+
+
 
   is_filling = true;
 
