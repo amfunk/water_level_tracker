@@ -30,7 +30,7 @@ void read_water_level ()
       printf("FIFO not ready for data...\n");
     }
 
-    if (is_filling) {
+    if (is_filling || is_set_thresh ) {
       // Check water level every second until stop filling
       sleep_ms(1000);
 
@@ -106,6 +106,7 @@ void set_thresholds ()
     }
   }
 
+  is_set_thresh = 0;
   return;
 }
 
@@ -145,7 +146,7 @@ int main ()
         aon_timer_stop();
         // Begin flashing LED rapidly
         is_set_thresh = true;
-        //set_thresholds();
+        set_thresholds();
       }
     }
 
