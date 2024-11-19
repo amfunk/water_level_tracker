@@ -1,16 +1,21 @@
 #include <stdio.h>
+#include <time.h>
 #include "pico/stdlib.h"
 #include "hardware/adc.h"
 #include "hardware/gpio.h"
 #include "pico/multicore.h"
+#include "pico/aon_timer.h"
 
 #define LOWER_THRESHOLD 1
 #define UPPER_THRESHOLD 10000
 
-#define ADC_PIN 26
-#define VALVE_PIN 1
+#define ADC 26
+#define VALVE 1
+#define BUTTON 2
 
 bool is_filling = false;
+uint32_t lower = 1;
+uint32_t upper = 1000;
 
 void read_water_level ()
 {
@@ -58,18 +63,56 @@ void close_valve ()
   return;
 }
 
+void set_thresholds ()
+{
+  while (1)
+  {
+
+  }
+
+  return;
+}
+
 int main ()
 {
   stdio_init_all();
 
   adc_init();
-  adc_gpio_init(26); //26-29 are valid inputs for adc
+  adc_gpio_init(ADC); //26-29 are valid inputs for adc
+
+  gpio_init(VALVE);
+  gpio_init(BUTTON);
+  bool state = 0;
 
   uint32_t data = 0;
   multicore_launch_core1(read_water_level);
 
   while (1) {
     data = multicore_fifo_pop_blocking();
+    state = gpio_get(BUTTON);
+    if (state)
+    {
+      aon_timer_start_with_timeofday();
+      struct timespec ts;
+      while (ts.tv_sec < 3)
+      {
+        state = gpio_get(BUTTON);
+        if (!state)
+        {
+          aon_timer_stop();
+          break;
+        }
+      }
+      if (aon_timer_is_running())
+      {
+        aon_timer_stop();
+        set_thresholds();
+      }
+    }
+
+    //TODO I should change this code to consume data for setting thresholds and to check against thresholds
+    //Maybe extract into two functions that run in while loop depending on if we are currently setting or not
+
     printf("Reading data from FIFO: %u\n",data);
     if (data < LOWER_THRESHOLD) {
       // If water level is too low, open valve

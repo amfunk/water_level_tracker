@@ -28,7 +28,7 @@ target_include_directories(water_level_tracker PRIVATE
 
 # Add pico_stdlib library which aggregates commonly used features
 # Additional libraries should be added space-separated after project name
-target_link_libraries(water_level_tracker pico_stdlib hardware_adc hardware_gpio pico_multicore)
+target_link_libraries(water_level_tracker pico_stdlib hardware_adc hardware_gpio pico_multicore pico_aon_timer)
 
 # enable usb input/output and disable uart input/output
 pico_enable_stdio_usb(water_level_tracker 1)
