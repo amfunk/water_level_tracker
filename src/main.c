@@ -14,6 +14,7 @@
 #define BUTTON 2
 
 bool is_filling = false;
+bool is_set_thresh = false;
 uint32_t lower = 1;
 uint32_t upper = 1000;
 
@@ -65,9 +66,44 @@ void close_valve ()
 
 void set_thresholds ()
 {
-  while (1)
-  {
+  uint32_t data;
+  bool state;
 
+  bool checkLower = 1;
+  bool done = 0;
+
+  while (!done)
+  {
+    state = gpio_get(BUTTON);
+    if (state)
+    {
+      aon_timer_start_with_timeofday();
+      struct timespec ts;
+      // Checks to see if button is held for 2 seconds to set thresholds
+      while (ts.tv_sec < 2)
+      {
+        state = gpio_get(BUTTON);
+        if (!state)
+        {
+          aon_timer_stop();
+          break;
+        }
+      }
+      if (aon_timer_is_running())
+      {
+        aon_timer_stop();
+        if (checkLower)
+        {
+          lower = multicore_fifo_pop_blocking();
+          checkLower = 0;
+        }
+        else
+        {
+          upper = multicore_fifo_pop_blocking();
+          done = 1;
+        }
+      }
+    }
   }
 
   return;
@@ -88,12 +124,13 @@ int main ()
   multicore_launch_core1(read_water_level);
 
   while (1) {
-    data = multicore_fifo_pop_blocking();
+    // Check if button pressed
     state = gpio_get(BUTTON);
     if (state)
     {
       aon_timer_start_with_timeofday();
       struct timespec ts;
+      // Checks to see if button is held for 3 seconds to set thresholds
       while (ts.tv_sec < 3)
       {
         state = gpio_get(BUTTON);
@@ -106,13 +143,16 @@ int main ()
       if (aon_timer_is_running())
       {
         aon_timer_stop();
-        set_thresholds();
+        // Begin flashing LED rapidly
+        is_set_thresh = true;
+        //set_thresholds();
       }
     }
 
     //TODO I should change this code to consume data for setting thresholds and to check against thresholds
     //Maybe extract into two functions that run in while loop depending on if we are currently setting or not
 
+    data = multicore_fifo_pop_blocking();
     printf("Reading data from FIFO: %u\n",data);
     if (data < LOWER_THRESHOLD) {
       // If water level is too low, open valve
