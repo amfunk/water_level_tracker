@@ -13,26 +13,26 @@ project(water_level_tracker)
 pico_sdk_init()
 
 # add an executable to the project using the specified source files
-add_executable(water_level_tracker
+add_executable(${CMAKE_PROJECT_NAME}
   src/main.c
   )
 
 # add compile definitions to a target
-target_compile_definitions(water_level_tracker PRIVATE
+target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
   )
 
 # specify include directories to use when compiling a target
-target_include_directories(water_level_tracker PRIVATE
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
   ${CMAKE_CURRENT_LIST_DIR}/include
   )
 
 # Add pico_stdlib library which aggregates commonly used features
 # Additional libraries should be added space-separated after project name
-target_link_libraries(water_level_tracker pico_stdlib hardware_adc hardware_gpio pico_multicore pico_aon_timer)
+target_link_libraries(${CMAKE_PROJECT_NAME} pico_stdlib hardware_adc hardware_gpio pico_multicore pico_aon_timer)
 
 # enable usb input/output and disable uart input/output
-pico_enable_stdio_usb(water_level_tracker 1)
-pico_enable_stdio_uart(water_level_tracker 0)
+pico_enable_stdio_usb(${CMAKE_PROJECT_NAME} 1)
+pico_enable_stdio_uart(${CMAKE_PROJECT_NAME} 0)
 
 # create map/bin/hex/uf2 file in addition to ELF.
-pico_add_extra_outputs(water_level_tracker)
+pico_add_extra_outputs(${CMAKE_PROJECT_NAME})

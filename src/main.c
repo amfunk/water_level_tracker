@@ -6,6 +6,14 @@
 #include "pico/multicore.h"
 #include "pico/aon_timer.h"
 
+#define DEBUG 1
+
+#ifdef DEBUG
+#define DPRINT printf
+#else
+#define DPRINT
+#endif
+
 #define LOWER_THRESHOLD 1
 #define UPPER_THRESHOLD 10000
 
@@ -24,10 +32,10 @@ void read_water_level ()
   while (1) {
     data = adc_read();
     if (multicore_fifo_wready()) {
-      printf("Adding data to FIFO: %u\n",data);
+      DPRINT("Adding data to FIFO: %u\n",data);
       multicore_fifo_push_blocking(data);
     } else {
-      printf("FIFO not ready for data...\n");
+      DPRINT("FIFO not ready for data...\n");
     }
 
     if (is_filling || is_set_thresh ) {
@@ -45,7 +53,7 @@ void read_water_level ()
 void open_valve ()
 {
   // TODO actually open valve
-  printf("OPENING VALVE\n");
+  DPRINT("OPENING VALVE\n");
 
 
 
@@ -57,7 +65,7 @@ void open_valve ()
 void close_valve ()
 {
   // TODO actually close valve
-  printf("CLOSING VALVE\n");
+  DPRINT("CLOSING VALVE\n");
 
   is_filling = false;
 
@@ -114,6 +122,14 @@ int main ()
 {
   stdio_init_all();
 
+#ifdef DEBUG
+  DPRINT("Waiting for USB connection...");
+  while (!stdio_usb_connected()) {
+    DPRINT(".");
+    sleep_ms(500);
+  }
+#endif
+
   adc_init();
   adc_gpio_init(ADC); //26-29 are valid inputs for adc
 
@@ -154,11 +170,11 @@ int main ()
     //Maybe extract into two functions that run in while loop depending on if we are currently setting or not
 
     data = multicore_fifo_pop_blocking();
-    printf("Reading data from FIFO: %u\n",data);
+    DPRINT("Reading data from FIFO: %u\n",data);
     if (data < LOWER_THRESHOLD) {
       // If water level is too low, open valve
       open_valve();
-      
+
     } else if (data > UPPER_THRESHOLD) {
       // Water level has refilled sufficiently
       close_valve();
