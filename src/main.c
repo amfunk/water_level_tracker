@@ -28,8 +28,11 @@ uint32_t upper = 1000;
 
 void read_water_level ()
 {
+  DPRINT("Entering read_water_level function on secondary core.\n");
+
   uint32_t data = 0;
   while (1) {
+    DPRINT("Reading data from ADC...\n");
     data = adc_read();
     if (multicore_fifo_wready()) {
       DPRINT("Adding data to FIFO: %u\n",data);
@@ -74,6 +77,8 @@ void close_valve ()
 
 void set_thresholds ()
 {
+  DPRINT("Entering function set_thresholds.\n");
+
   uint32_t data;
   bool state;
 
@@ -123,11 +128,12 @@ int main ()
   stdio_init_all();
 
 #ifdef DEBUG
-  DPRINT("Waiting for USB connection...");
+  DPRINT("Waiting for USB connection...\n");
   while (!stdio_usb_connected()) {
     DPRINT(".");
     sleep_ms(500);
   }
+  DPRINT("Connected to USB!!!\n");
 #endif
 
   adc_init();
@@ -139,6 +145,8 @@ int main ()
 
   uint32_t data = 0;
   multicore_launch_core1(read_water_level);
+
+  DPRINT("Setup is done...entering main loop.\n");
 
   while (1) {
     // Check if button pressed
@@ -169,8 +177,9 @@ int main ()
     //TODO I should change this code to consume data for setting thresholds and to check against thresholds
     //Maybe extract into two functions that run in while loop depending on if we are currently setting or not
 
+    DPRINT("Preparing to pop data from FIFO...\n");
     data = multicore_fifo_pop_blocking();
-    DPRINT("Reading data from FIFO: %u\n",data);
+    DPRINT("Data from FIFO: %u\n",data);
     if (data < LOWER_THRESHOLD) {
       // If water level is too low, open valve
       open_valve();
