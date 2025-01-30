@@ -14,8 +14,8 @@
 #define DPRINT
 #endif
 
-#define LOWER_THRESHOLD 1
-#define UPPER_THRESHOLD 10000
+#define THRESHOLD 1000
+#define MAX_FILL_TIME 60
 
 #define ADC 26
 #define VALVE 1
@@ -23,9 +23,10 @@
 
 bool is_filling = false;
 bool is_set_thresh = false;
-uint32_t lower = 1;
-uint32_t upper = 1000;
+uint32_t lower = 1000;
+uint32_t upper = 10000;
 
+// Producer
 void read_water_level ()
 {
   DPRINT("Entering read_water_level function on secondary core.\n");
@@ -35,10 +36,10 @@ void read_water_level ()
     DPRINT("Reading data from ADC...\n");
     data = adc_read();
     if (multicore_fifo_wready()) {
-      DPRINT("Adding data to FIFO: %u\n",data);
+      DPRINT("Adding data to FIFO: %u\n\n",data);
       multicore_fifo_push_blocking(data);
     } else {
-      DPRINT("FIFO not ready for data...\n");
+      DPRINT("FIFO not ready for data...\n\n");
     }
 
     if (is_filling || is_set_thresh ) {
@@ -55,10 +56,12 @@ void read_water_level ()
 
 void open_valve ()
 {
+  struct timespec ts;
+  ts.tv_sec = 0;
+  aon_timer_start(&ts);
+
   // TODO actually open valve
-  DPRINT("OPENING VALVE\n");
-
-
+  DPRINT("OPENING VALVE at time %jd\n\n",(intmax_t)ts.tv_sec);
 
   is_filling = true;
 
@@ -71,12 +74,16 @@ void close_valve ()
   DPRINT("CLOSING VALVE\n");
 
   is_filling = false;
+  aon_timer_stop();
 
   return;
 }
 
 void set_thresholds ()
 {
+  // TODO do I even care about setting thresholds?
+  // I could just use two sensors, one at bottom and one at top of tank
+  // OR just one at top of tank and refill it whenever it isn't full
   DPRINT("Entering function set_thresholds.\n");
 
   uint32_t data;
@@ -92,8 +99,13 @@ void set_thresholds ()
     {
       aon_timer_start_with_timeofday();
       struct timespec ts;
+      if (!aon_timer_get_time(&ts)) {
+        printf("Error: aon_timer_get_time failed!\n");
+      }
+      DPRINT("timespec values: ts.tv_sec = %d, ts.tv_nsec = %09ld\n",ts.tv_sec,ts.tv_nsec);
+
       // Checks to see if button is held for 2 seconds to set thresholds
-      while (ts.tv_sec < 2)
+      while (ts.tv_sec < 2) // TODO if I keep this function I need to either baseline current time of day or use aon_timer_start with a timespec containing zeroes
       {
         state = gpio_get(BUTTON);
         if (!state)
@@ -123,6 +135,7 @@ void set_thresholds ()
   return;
 }
 
+// Consumer
 int main ()
 {
   stdio_init_all();
@@ -149,12 +162,13 @@ int main ()
   DPRINT("Setup is done...entering main loop.\n");
 
   while (1) {
+#if 0
     // Check if button pressed
     state = gpio_get(BUTTON);
     if (state)
     {
-      aon_timer_start_with_timeofday();
       struct timespec ts;
+      aon_timer_start_with_timeofday();
       // Checks to see if button is held for 3 seconds to set thresholds
       while (ts.tv_sec < 3)
       {
@@ -173,22 +187,40 @@ int main ()
         set_thresholds();
       }
     }
+#endif
 
     //TODO I should change this code to consume data for setting thresholds and to check against thresholds
     //Maybe extract into two functions that run in while loop depending on if we are currently setting or not
+    
+    // Let's make sure that there is data in the FIFO to read
+    if (multicore_fifo_rvalid()) {
+      // If data is available, go get it!
+      DPRINT("Preparing to pop data from FIFO...\n");
+      data = multicore_fifo_pop_blocking();
+      DPRINT("Data from FIFO: %u\n\n",data);
+      if (data < THRESHOLD && !is_filling) {
+        // If water level is too low, open valve
+        open_valve();
 
-    DPRINT("Preparing to pop data from FIFO...\n");
-    data = multicore_fifo_pop_blocking();
-    DPRINT("Data from FIFO: %u\n",data);
-    if (data < LOWER_THRESHOLD) {
-      // If water level is too low, open valve
-      open_valve();
+      } else if (data >= THRESHOLD && is_filling) {
+        // Water level has refilled sufficiently
+        close_valve();
+      }
+    } else {
+      // No data?? Give our producer a second to breath
+      DPRINT("FIFO is empty...\n\n");
+      sleep_ms(1000);
+    }
 
-    } else if (data > UPPER_THRESHOLD) {
-      // Water level has refilled sufficiently
-      close_valve();
+    // Safety check while filling
+    if (is_filling) {
+      struct timespec ts;
+      aon_timer_get_time(&ts);
+      DPRINT("SAFETY CHECK: %jd seconds since we started filling\n\n",(intmax_t)ts.tv_sec);
+      if ((intmax_t)ts.tv_sec > MAX_FILL_TIME) {
+        DPRINT("OVERFLOW ERROR!!!\n\n");
+        close_valve();
+      }
     }
   }
-
-  return 0;
 }
